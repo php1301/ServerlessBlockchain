@@ -15,7 +15,7 @@ const web3Provider = "https://rinkeby.infura.io/v3/c32c3560feee48ee9a922e27e6c30
 let web3 = new Web3(new Web3.providers.HttpProvider(web3Provider))
 // const contractAddress = '0x18A5C415da30cd97485a7d13D90FE702249F4936'
 // const contractAddress = '0x9c2Ff4d3FD42b75555AE11D44cCd4354812Df7C6'
-const contractAddress = '0x10f18A66D13E35cB6E8679bf5FC6Bb9eF0eAE3Ed'
+const contractAddress = '0xE124cEE21A6DE685D24AaC6487CC9AAB07350A38'
 const LMS = contract(factory)
 const Campaign = contract(campaign)
 LMS.setProvider(web3.currentProvider)
@@ -312,7 +312,7 @@ const getCampaignSummary = async (req, res) => {
     summary['2'] = summary['2'].toString()
     summary['3'] = summary['3'].toString()
     summary['10'] = summary['10'].toString()
-    summary.push(roadmap)
+    summary['11'] = roadmap
     return res.status(200).json({ summary })
   }
   catch (e) {
@@ -363,7 +363,7 @@ const createCampaign = async (req, res) => {
 
 const createCampaignFirebase = async (req, res) => {
   try {
-    const { minimumContribution, campaignName, description, imageUrl, target, walletAddr, campaignId, txHash, date, roadmap } = req.body
+    const { minimumContribution, campaignName, description, imageUrl, target, walletAddr, campaignId, txHash, date, roadmap, timestamp } = req.body
     const docs = await admin.firestore().collection("campaigns").doc(campaignId).set({
       minimumContribution,
       campaignName,
@@ -381,7 +381,8 @@ const createCampaignFirebase = async (req, res) => {
       approversCount: 0,
       hidden: false,
       done: false,
-      roadmap
+      roadmap: roadmap || [],
+      timestamp,
     })
     return res.status(200).json({ docs })
   }
