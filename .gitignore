@@ -1,0 +1,5 @@
+node_modules
+.serverless
+.env*
+blockchaincharity-3dc53-firebase-adminsdk-n952g-4f114b626a.json
+.env

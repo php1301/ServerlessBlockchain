@@ -1,0 +1,147 @@
+org: php1301
+app: blockchain-charity
+service: BlockchainCharity
+frameworkVersion: '3'
+useDotenv: true
+
+custom:
+  tableName: 'users-table-${sls:stage}'
+plugins:
+  - serverless-offline
+
+provider:
+  name: aws
+  runtime: nodejs14.x
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:Query
+            - dynamodb:Scan
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+          Resource:
+            - Fn::GetAtt: [ UsersTable, Arn ]
+  environment:
+    USERS_TABLE: ${self:custom.tableName}
+
+functions:
+  api:
+    handler: handler.handler
+    events:
+      - http: ANY /
+      - http: 'ANY {proxy+}'
+  # getUser:
+  #   handler: handler.handler
+  #   events:
+  #     - http: 'GET /users/{proxy+}'
+  createUser:
+    handler: handler.handler
+    events:
+      - http: 'POST /users'
+  toHex:
+    handler: handler.handler
+    events:
+      - http: 'GET /to-hex'  
+  nonce:
+    handler: handler.handler
+    events:
+      - http: 'POST /auth/nonce'  
+  wallet:
+    handler: handler.handler
+    events:
+      - http: 'POST /auth/wallet'  
+  login:
+    handler: handler.handler
+    events:
+      - http: 'POST /auth/login' 
+  getProfile:
+    handler: handler.handler
+    events:
+      - http: 'GET /users/get-profile'
+  viewProfile:
+    handler: handler.handler
+    events:
+      - http: 'GET /users/view-profile/{uid}'  
+  getDeployedCampaigns:
+    handler: handler.handler
+    events:
+      - http: 'GET /campaigns/get-deployed-campaigns'
+  getCampaignSummary:
+    handler: handler.handler
+    events:
+      - http: 'GET /campaigns/get-campaign-summary/{address}'  
+  getCampaignAddress:
+    handler: handler.handler
+    events:
+      - http: 'GET /campaigns/get-campaign-address/{id}'  
+  createCampaign:
+    handler: handler.handler
+    events:
+      - http: 'POST /campaigns/create-campaign'  
+  createCampaignFirebase:
+    handler: handler.handler
+    events:
+      - http: 'POST /campaigns/create-campaign-fb'  
+  contributeCampaign:
+    handler: handler.handler
+    events:
+      - http: 'POST /campaigns/contribute-campaign'
+  contributeCampaignFirebase:
+    handler: handler.handler
+    events:
+      - http: 'POST /campaigns/contribute-campaign-fb'
+  getApproversCount:
+    handler: handler.handler
+    events:
+      - http: 'GET /campaigns/get-approvers-count/{address}'
+  getRequestsCount:
+    handler: handler.handler
+    events:
+      - http: 'GET /campaigns/get-requests-count/{address}'
+  getCampaignRequests:
+    handler: handler.handler
+    events:
+      - http: 'GET /campaigns/get-campaign-requests/{address}/{id}'
+  createWithdrawRequest:
+    handler: handler.handler
+    events:
+      - http: 'POST /campaigns/create-withdraw-request'  
+  createWithdrawRequestFirebase:
+    handler: handler.handler
+    events:
+      - http: 'POST /campaigns/create-withdraw-request-fb'  
+  approveWithdrawRequest:
+    handler: handler.handler
+    events:
+      - http: 'POST /campaigns/approve-withdraw-request'  
+  approveWithdrawRequestFirebase:
+    handler: handler.handler
+    events:
+      - http: 'POST /campaigns/approve-withdraw-request-fb'  
+  finalizeRequest:
+    handler: handler.handler
+    events:
+      - http: 'POST /campaigns/finalize-request'  
+  finalizeRequestFirebase:
+    handler: handler.handler
+    events:
+      - http: 'POST /campaigns/finalize-request-fb'  
+  
+
+resources:
+  Resources:
+    UsersTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        AttributeDefinitions:
+          - AttributeName: userId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: userId
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
+        TableName: ${self:custom.tableName}
