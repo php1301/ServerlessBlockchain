@@ -41,8 +41,7 @@ const environment = {
 const admin = firebaseAdmin.initializeApp({
   credential: firebaseAdmin.credential.cert({ ...JSON.parse(ACC), privateKey: PRIVATE }),
   databaseURL: `https:/blockchaincharity-3dc53.firebaseio.com`,
-});
-
+}, "admin");
 // const admin = initializeApp(environment.firebase);
 // const analytics = getAnalytics(admin);
 app.use(express.json());
@@ -169,15 +168,20 @@ const nonceApi = async (req, res) => {
       // Create an Auth user
       const createdUser = await admin.auth().createUser({
         uid: walletAddr,
-        displayName: "Phuc",
-        gender: "male"
       });
 
       // Associate the nonce with that user
       await admin.firestore().collection('users').doc(createdUser.uid).set({
         nonce,
-        displayName: "Phuc",
-        gender: "male"
+        firstName: "",
+        lastName: "",
+        bio: "",
+        email: "",
+        phone: "",
+        avatar: "",
+        facebookUrl: "",
+        youtubeUrl: "",
+        instagramUrl: ""
       });
 
       return res.status(200).json({ nonce });
@@ -227,49 +231,161 @@ const login = async (req, res) => {
   console.log(`data`, data)
 }
 
-const getUserProfilePage = async (req, res) => {
-  console.log("run get  user profile page")
-  if (!req.headers.authorization) {
-    return res.status(403).json({ error: 'No credentials sent!' });
-  }
-  console.log(req.headers.authorization)
-  const uid = (await admin.auth().verifyIdToken(req.headers.authorization.split(" ")[1])).uid;
-  if (uid) {
-    const user = await admin
-      .firestore()
-      .collection('users')
-      .doc(uid)
-      .get();
-    return res.status(200).json({ user: user.data() });
-  }
-  else {
-    return res.status(403).json({ error: 'User not found' });
-  }
-
-}
-
-const viewUserProfilePage = async (req, res) => {
-  const { uid } = req.params
-  if (!uid) {
-    return res.status(403).json({ error: 'No credentials sent!' });
-  }
+const userStats = async (uid) => {
+  console.log(uid)
+  const userCampaignsArray = []
+  const userCampaigns = await admin.firestore().collection('campaigns').where('creator', '==', uid).get()
+  const numberOfCampaigns = await userCampaigns.size;
+  let totalDonationReceived = 0
+  let numberOfCompleteRequests = 0;
+  let requests = []
+  userCampaigns.docs
+    .map(doc => {
+      const { contributors } = doc.data();
+      // contributors.push({
+      //   walletAddr: '0x4ddFf5E113FF403f193503c280DDf7723E53Ca11',
+      //   value: '0.004'
+      // })
+      if (contributors.length > 1) {
+        console.log("run", contributors)
+        totalDonationReceived += contributors.reduce((previousValue, currentValue) => {
+          console.log("value", previousValue, currentValue)
+          return parseFloat(previousValue.value) + parseFloat(currentValue.value)
+        })
+      }
+      else if (contributors.length === 1) {
+        totalDonationReceived += parseFloat(contributors[0].value)
+      }
+    })
+  userCampaigns.docs.forEach(doc => {
+    userCampaignsArray.push(doc.data().campaignId)
+    requests.push(...doc.data().requests)
+  })
+  console.log(requests.length)
+  requests.forEach(request => { if (request.complete) numberOfCompleteRequests++ })
+  const finalizeRate = numberOfCompleteRequests / requests.length;
   const user = await admin
     .firestore()
     .collection('users')
     .doc(uid)
     .get();
-  return res.status(200).json({ user: user.data() });
+  const userStats = { user: { ...user.data(), walletAddress: uid }, userCampaigns: userCampaignsArray, numberOfCampaigns, totalDonationReceived, finalizeRate: Number.isNaN(finalizeRate) ? 0 : finalizeRate * 100 }
+  console.log(userStats)
+  return userStats;
+}
 
+const getUserProfilePage = async (req, res) => {
+  try {
+    console.log("run get  user profile page")
+    if (!req.headers.authorization) {
+      return res.status(403).json({ error: 'No credentials sent!' });
+    }
+    console.log(req.headers.authorization)
+    const uid = (await admin.auth().verifyIdToken(req.headers.authorization.split(" ")[1])).uid;
+    if (uid) {
+      const user = await userStats(uid);
+      return res.status(200).json({ user });
+    }
+    else {
+      return res.status(403).json({ error: 'User not found' });
+    }
+  }
+  catch (e) {
+    console.log(e)
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+const viewUserProfilePage = async (req, res) => {
+  try {
+    const { uid } = req.params
+    if (!uid) {
+      return res.status(403).json({ error: 'No credentials sent!' });
+    }
+    const user = await userStats(uid);
+    return res.status(200).json({ user });
+  }
+  catch (e) {
+    return res.status(500).json({ error: e.message })
+  }
+}
+
+const updateUserProfilePage = async (req, res) => {
+  try {
+    const { email, bio, avatar, phone, firstName, lastName, facebookUrl, youtubeUrl, instagramUrl } = req.body
+    console.log("run update user profile page")
+    if (!req.headers.authorization) {
+      return res.status(403).json({ error: 'No credentials sent!' });
+    }
+    console.log(req.headers.authorization)
+    const uid = (await admin.auth().verifyIdToken(req.headers.authorization.split(" ")[1])).uid;
+    if (uid) {
+      await admin.firestore().collection('users').doc(uid).update({
+        email,
+        bio,
+        avatar,
+        phone,
+        firstName,
+        lastName,
+        facebookUrl,
+        youtubeUrl,
+        instagramUrl
+      }, { ignoreUndefinedProperties: true })
+      return res.status(200).json({ message: "Update successfully" });
+    }
+    else {
+      return res.status(403).json({ error: 'User not found' });
+    }
+  }
+  catch (e) {
+    console.log(e.message)
+    return res.status(500).json({ error: e.message })
+  }
 }
 
 const getDeployedCampaigns = async (req, res) => {
   try {
     // const lms = await LMS.deployed();
+    const { sort } = req.params
+    let sorted = []
+    let campaignFb = []
     const lms = await LMS.at(contractAddress)
     const list = await lms.getDeployedCampaigns();
     console.log("list", JSON.stringify(list))
-    return res.status(200).json({ list })
-
+    const fbAdmin1 = firebaseAdmin.initializeApp({
+      credential: firebaseAdmin.credential.cert({ ...JSON.parse(ACC), privateKey: PRIVATE }),
+      databaseURL: `https:/blockchaincharity-3dc53.firebaseio.com`,
+    }, "fbAdmin1");
+    let date = new Date();
+    if (sort === "hot") {
+      campaignFb = await fbAdmin1
+        .firestore()
+        .collection('campaigns')
+        .where('dateCreated', ">=", new Date(date.getFullYear(), date.getMonth()).toISOString())
+        .where('dateCreated', "<=", new Date(date.getFullYear(), date.getMonth() + 1, 2).toISOString())
+        .orderBy('dateCreated', 'asc')
+        .limit(10)
+        .get();
+    }
+    if (sort === "old") {
+      campaignFb = await fbAdmin1
+        .firestore()
+        .collection('campaigns')
+        .orderBy('timestamp', 'asc')
+        .get();
+    }
+    if (sort === "new") {
+      campaignFb = await fbAdmin1
+        .firestore()
+        .collection('campaigns')
+        .orderBy('timestamp', 'desc')
+        .get();
+    }
+    campaignFb.docs?.map(async (doc) => {
+      sorted.push(doc.data()?.campaignId)
+    })
+    console.log(sorted)
+    return res.status(200).json({ list, sorted })
   }
   catch (e) {
     console.log(e)
@@ -299,14 +415,18 @@ const getCampaignAddress = async (req, res) => {
 const getCampaignSummary = async (req, res) => {
   try {
     const { address } = req.params
-    const campaign = await Campaign.at(address)
-    const summary = await campaign.getSummary();
-    const campaignFb = await admin
+    const fbAdmin2 = firebaseAdmin.initializeApp({
+      credential: firebaseAdmin.credential.cert({ ...JSON.parse(ACC), privateKey: PRIVATE }),
+      databaseURL: `https:/blockchaincharity-3dc53.firebaseio.com`,
+    }, "fbAdmin2");
+    const campaignFb = await fbAdmin2
       .firestore()
       .collection('campaigns')
       .doc(address)
       .get();
-    const { roadmap } = campaignFb.data();
+    const { roadmap } = campaignFb?.data() || [];
+    const campaign = await Campaign.at(address)
+    const summary = await campaign.getSummary();
     summary['0'] = summary['0'].toString()
     summary['1'] = summary['1'].toString()
     summary['2'] = summary['2'].toString()
@@ -701,8 +821,9 @@ app.post('/auth/nonce', nonceApi);
 app.post('/auth/wallet', walletApi);
 app.post('/auth/login', login);
 app.get('/users/get-profile', getUserProfilePage);
+app.put('/users/update-user-profile', updateUserProfilePage);
 app.get('/users/view-profile/:uid', viewUserProfilePage);
-app.get('/campaigns/get-deployed-campaigns', getDeployedCampaigns);
+app.get('/campaigns/get-deployed-campaigns/:sort', getDeployedCampaigns);
 app.get('/campaigns/get-campaign-summary/:address', getCampaignSummary);
 app.get('/campaigns/get-campaign-address/:id', getCampaignAddress);
 app.post('/campaigns/create-campaign', createCampaign);

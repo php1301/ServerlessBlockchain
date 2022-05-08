@@ -62,6 +62,10 @@ functions:
     handler: handler.handler
     events:
       - http: 'GET /users/get-profile'
+  updateProfile:
+    handler: handler.handler
+    events:
+      - http: 'PUT /users/update-user-profile'
   viewProfile:
     handler: handler.handler
     events:
@@ -69,7 +73,7 @@ functions:
   getDeployedCampaigns:
     handler: handler.handler
     events:
-      - http: 'GET /campaigns/get-deployed-campaigns'
+      - http: 'GET /campaigns/get-deployed-campaigns/{sort}'
   getCampaignSummary:
     handler: handler.handler
     events:
