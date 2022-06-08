@@ -352,35 +352,33 @@ const getDeployedCampaigns = async (req, res) => {
     const lms = await LMS.at(contractAddress)
     const list = await lms.getDeployedCampaigns();
     console.log("list", JSON.stringify(list))
-    const fbAdmin1 = firebaseAdmin.initializeApp({
-      credential: firebaseAdmin.credential.cert({ ...JSON.parse(ACC), privateKey: PRIVATE }),
-      databaseURL: `https:/blockchaincharity-3dc53.firebaseio.com`,
-    }, "fbAdmin1");
-    let date = new Date();
-    if (sort === "hot") {
-      campaignFb = await fbAdmin1
-        .firestore()
-        .collection('campaigns')
-        .where('dateCreated', ">=", new Date(date.getFullYear(), date.getMonth()).toISOString())
-        .where('dateCreated', "<=", new Date(date.getFullYear(), date.getMonth() + 1, 2).toISOString())
-        .orderBy('dateCreated', 'asc')
-        .limit(10)
-        .get();
-    }
-    if (sort === "old") {
-      campaignFb = await fbAdmin1
-        .firestore()
-        .collection('campaigns')
-        .orderBy('timestamp', 'asc')
-        .get();
-    }
-    if (sort === "new") {
-      campaignFb = await fbAdmin1
+    // const fbAdmin1 = firebaseAdmin.initializeApp({
+    //   credential: firebaseAdmin.credential.cert({ ...JSON.parse(ACC), privateKey: PRIVATE }),
+    //   databaseURL: `https:/blockchaincharity-3dc53.firebaseio.com`,
+    // }, "fbAdmin1");
+    // let date = new Date();
+    // if (sort === "hot") {
+    //   campaignFb = await fbAdmin1
+    //     .firestore()
+    //     .collection('campaigns')
+    //     .where('dateCreated', ">=", new Date(date.getFullYear(), date.getMonth()).toISOString())
+    //     .where('dateCreated', "<=", new Date(date.getFullYear(), date.getMonth() + 1, 2).toISOString())
+    //     .orderBy('dateCreated', 'asc')
+    //     .limit(10)
+    //     .get();
+    // }
+    // if (sort === "old") {
+    //   campaignFb = await fbAdmin1
+    //     .firestore()
+    //     .collection('campaigns')
+    //     .orderBy('timestamp', 'asc')
+    //     .get();
+    // }
+      campaignFb = await admin
         .firestore()
         .collection('campaigns')
         .orderBy('timestamp', 'desc')
         .get();
-    }
     campaignFb.docs?.map(async (doc) => {
       sorted.push(doc.data()?.campaignId)
     })
