@@ -530,7 +530,7 @@ const contributeCampaign = async (req, res) => {
       gas: web3.utils.numberToHex(42000 * 5),
       gasPrice: web3.utils.numberToHex(gasPrice * 5),
     };
-    return res.status(200).json({ txParams })
+    return res.status(200).json({ txParams, txString: JSON.stringify(txParams) })
   }
   catch (e) {
     console.log(e)
